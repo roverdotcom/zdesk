@@ -4586,6 +4586,19 @@ class ZendeskAPI(object):
         api_path = "/api/v2/tickets/update_many"
         return self.call(api_path, method="PUT", data=data, **kwargs)
 
+    def tickets_update_many_by_fields_dict(self, data, ids=None, **kwargs):
+        "https://developer.zendesk.com/rest_api/docs/core/tickets#update-many-tickets"
+        api_path = "/api/v2/tickets/update_many.json"
+        api_query = {}
+        if "query" in kwargs.keys():
+            api_query.update(kwargs["query"])
+            del kwargs["query"]
+        if ids:
+            api_query.update({
+                "ids": ids,
+            })
+        return self.call(api_path, query=api_query, method="PUT", data=data, **kwargs)
+
     def trigger_categories_job_create(self, data, **kwargs):
         "https://developer.zendesk.com/api-reference/ticketing/trigger_categories#create-batch-job-for-trigger-categories"
         api_path = "/api/v2/trigger_categories/jobs"
