@@ -5162,7 +5162,7 @@ class ZendeskAPI(object):
         api_path = "/api/v2/users/request_create"
         return self.call(api_path, method="POST", data=data, **kwargs)
 
-    def users_search(self, **kwargs):
+    def users_search(self, external_id=None, query=None, **kwargs):
         "https://developer.zendesk.com/rest_api/docs/core/users#search-users"
         api_path = "/api/v2/users/search.json"
         api_query = {}
