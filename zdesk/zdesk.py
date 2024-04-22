@@ -436,15 +436,16 @@ class Zendesk(ZendeskAPI):
             code = response.status_code
             try:
                 if not 200 <= code < 300:
+                    partial_results = self._combine_results(results) if results else None
                     if code == 401:
                         raise AuthenticationError(
-                            response.content, code, response)
+                            response.content, code, response, partial_results)
                     elif code == 429:
                         raise RateLimitError(
-                            response.content, code, response)
+                            response.content, code, response, partial_results)
                     else:
                         raise ZendeskError(
-                            response.content, code, response)
+                            response.content, code, response, partial_results)
             except ZendeskError:
                 if request_count <= self.max_retries and code != 422:
                     self._handle_retry(response)
