@@ -310,7 +310,7 @@ class Zendesk(ZendeskAPI):
     def call(self, path, query=None, method='GET', data=None,
              files=None, get_all_pages=False, complete_response=False,
              retry_on=None, max_retries=0, raw_query=None, retval=None,
-             **kwargs):
+             cursor_pagination=True, **kwargs):
         """Make a REST call to the Zendesk web service.
 
         Parameters:
@@ -334,6 +334,10 @@ class Zendesk(ZendeskAPI):
             appended to the URL path and will completely override / discard
             any other query parameters. Enables use cases where query
             parameters need to be repeated in the query string.
+        cursor_pagination - Whether to use cursor-based pagination or not.
+            Defaults to True. Some endpoints don't support cursor-based
+            pagination yet, so you can set this to False to revert to
+            offset/page based pagination.
         retval - Request a specific part of the returned response. Valid
             values are 'content', 'code', 'location', and 'headers'.
             JSON content is still automatically deserialized if possible.
