@@ -462,7 +462,7 @@ class Zendesk(ZendeskAPI):
                     raise
 
             
-            content, url, kwargs = self._parse_response(response)
+            content, url, kwargs = self._parse_response(response, kwargs)
 
             if complete_response:
                 results.append({
@@ -544,32 +544,29 @@ class Zendesk(ZendeskAPI):
         
         return self._combine_results(results)
 
-    def _parse_response(self, response):
+    def _parse_response(self, response, kwargs):
         # Deserialize json content if content exists.
         # In some cases Zendesk returns ' ' strings.
         # Also return false non strings (0, [], (), {})
-        if response.content.strip() and 'json' in response.headers['content-type']:
-            content = response.json()
-
-                # set url to the next page if that was returned in the response
-            url = content.get('next_page', None)
-                # url we get above already has the start_time appended to it,
-                # specific to incremental exports
-            kwargs = {}
-        elif response.content.strip() and 'text' in response.headers['content-type']:
+        if not response.content.strip():
+            return response.content, None, kwargs
+        
+        if 'json' in response.headers['content-type']:
+            json = response.json()
+        elif 'text' in response.headers['content-type']:
             try:
-                content = response.json()
-                    # set url to the next page if that was returned in the response
-                url = content.get('next_page', None)
-                    # url we get above already has the start_time appended to it,
-                    # specific to incremental exports
-                kwargs = {}
+                json = response.json()
             except ValueError:
-                content = response.content
-        else:
-            content = response.content
-            url = None
-        return content, url, kwargs
+                json = None
+
+        if json:
+            # set url to the next page if that was returned in the response
+            url = json.get('next_page', None)
+
+            # url we get above already has kwargs appended,
+            return json, url, {}
+        
+        return response.content, None, kwargs
 
 
     def _combine_results(self, results):
