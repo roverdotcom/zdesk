@@ -72,10 +72,11 @@ def get_id_from_url(url):
 
 
 class ZendeskError(Exception):
-    def __init__(self, msg, code, response):
+    def __init__(self, msg, code, response, partial_results = None):
         self.msg = msg
         self.error_code = code
         self.response = response
+        self.partial_results = partial_results
 
     def __str__(self):
         return repr('%s: %s %s' % (self.error_code, self.msg, self.response))
@@ -553,7 +554,11 @@ class Zendesk(ZendeskAPI):
             # we have a list of simple objects like strings, but they are not
             # all the same so send them all back.
             return results
+        
+        return self._combine_results(results)
 
+
+    def _combine_results(self, results):
         # may have a sequence of response contents
         # (dicts, possibly lists in the future as that is valid json also)
         combined_dict_results = {}
