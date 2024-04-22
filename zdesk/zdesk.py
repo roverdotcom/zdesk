@@ -378,6 +378,10 @@ class Zendesk(ZendeskAPI):
             else:
                 kwargs = query
 
+        if get_all_pages and cursor_pagination:
+            kwargs["page[size]"] = kwargs.get("per_page", 100)
+            del kwargs["per_page"]
+
         if raw_query:
             path = path + raw_query
             kwargs = None
@@ -457,30 +461,8 @@ class Zendesk(ZendeskAPI):
                 else:
                     raise
 
-            # Deserialize json content if content exists.
-            # In some cases Zendesk returns ' ' strings.
-            # Also return false non strings (0, [], (), {})
-            if response.content.strip() and 'json' in response.headers['content-type']:
-                content = response.json()
-
-                # set url to the next page if that was returned in the response
-                url = content.get('next_page', None)
-                # url we get above already has the start_time appended to it,
-                # specific to incremental exports
-                kwargs = {}
-            elif response.content.strip() and 'text' in response.headers['content-type']:
-                try:
-                    content = response.json()
-                    # set url to the next page if that was returned in the response
-                    url = content.get('next_page', None)
-                    # url we get above already has the start_time appended to it,
-                    # specific to incremental exports
-                    kwargs = {}
-                except ValueError:
-                    content = response.content
-            else:
-                content = response.content
-                url = None
+            
+            content, url, kwargs = self._parse_response(response)
 
             if complete_response:
                 results.append({
@@ -561,6 +543,33 @@ class Zendesk(ZendeskAPI):
             return results
         
         return self._combine_results(results)
+
+    def _parse_response(self, response):
+        # Deserialize json content if content exists.
+        # In some cases Zendesk returns ' ' strings.
+        # Also return false non strings (0, [], (), {})
+        if response.content.strip() and 'json' in response.headers['content-type']:
+            content = response.json()
+
+                # set url to the next page if that was returned in the response
+            url = content.get('next_page', None)
+                # url we get above already has the start_time appended to it,
+                # specific to incremental exports
+            kwargs = {}
+        elif response.content.strip() and 'text' in response.headers['content-type']:
+            try:
+                content = response.json()
+                    # set url to the next page if that was returned in the response
+                url = content.get('next_page', None)
+                    # url we get above already has the start_time appended to it,
+                    # specific to incremental exports
+                kwargs = {}
+            except ValueError:
+                content = response.content
+        else:
+            content = response.content
+            url = None
+        return content, url, kwargs
 
 
     def _combine_results(self, results):

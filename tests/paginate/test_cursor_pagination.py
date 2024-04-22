@@ -10,7 +10,18 @@ def expected_ticket_count(zd: Zendesk):
     return count
 
 
-def test_ticket_pagination(zd: Zendesk, expected_ticket_count: int):
-    response = zd.tickets_list(per_page=100, get_all_pages=True)
+def test_ticket_cursor_pagination(zd: Zendesk, expected_ticket_count: int):
+    response = zd.tickets_list(get_all_pages=True)
+    tickets = response["tickets"]
+    assert len(tickets) == expected_ticket_count
+
+def test_ticket_cursor_pagination_custom_page_size(zd: Zendesk, expected_ticket_count: int):
+    response = zd.tickets_list(page_size=50, get_all_pages=True)
+    tickets = response["tickets"]
+    assert len(tickets) == expected_ticket_count
+
+
+def test_ticket_offset_pagination(zd: Zendesk, expected_ticket_count: int):
+    response = zd.tickets_list(per_page=100, get_all_pages=True, cursor_pagination=False)
     tickets = response["tickets"]
     assert len(tickets) == expected_ticket_count
