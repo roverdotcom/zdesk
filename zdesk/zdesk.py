@@ -379,8 +379,7 @@ class Zendesk(ZendeskAPI):
                 kwargs = query
 
         if get_all_pages and cursor_pagination:
-            kwargs["page[size]"] = kwargs.get("per_page", 100)
-            del kwargs["per_page"]
+            kwargs["page[size]"] = kwargs.pop("per_page", 100)
 
         if raw_query:
             path = path + raw_query
@@ -560,8 +559,16 @@ class Zendesk(ZendeskAPI):
                 json = None
 
         if json:
+            url = None
+
             # set url to the next page if that was returned in the response
-            url = json.get('next_page', None)
+            if {"meta", "links"} <= json.keys():
+                # cursor based pagination
+                if json.get("meta", {}).get("has_more"):
+                    url = json.get('links', {}).get('next')
+            else:
+                # offset based pagination
+                url = json.get('next_page', None)
 
             # url we get above already has kwargs appended,
             return json, url, {}
