@@ -565,10 +565,14 @@ class Zendesk(ZendeskAPI):
             if {"meta", "links"} <= json.keys():
                 # cursor based pagination
                 if json.get("meta", {}).get("has_more"):
-                    url = json.get('links', {}).get('next')
+                    url = json.get("links", {}).get("next")
             else:
                 # offset based pagination
-                url = json.get('next_page', None)
+                if not json.get("end_of_stream", False):
+                    url = json.get('next_page', None)
+
+                    # incremental api cursor pagination uses after_url instead
+                    url = url if url else json.get("after_url", None)
 
             # url we get above already has kwargs appended,
             return json, url, {}
