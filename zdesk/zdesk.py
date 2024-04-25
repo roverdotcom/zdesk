@@ -506,6 +506,7 @@ class Zendesk(ZendeskAPI):
             # also note that incremental/ticket_metric_events end-point has a 10,000 items per page limit
             url = None if (url is not None and
                            'incremental' in url and
+                           'count' in content and
                            content.get('count') < 1000) else url
             all_requests_complete = not (get_all_pages and url)
             request_count = 0
