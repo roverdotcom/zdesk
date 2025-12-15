@@ -2539,6 +2539,11 @@ class ZendeskAPI(object):
             api_path = api_opt_path.format(locale=locale)
         return self.call(api_path, **kwargs)
 
+    def help_center_integration_keys(self, **kwargs):
+        "https://developer.zendesk.com/api-reference/help_center/help-center-api/help_center_jwts/#list-public-keys"
+        api_path = "/api/v2/help_center/integration/keys"
+        return self.call(api_path, **kwargs)
+
     def help_center_translation_delete(self, translation_id, **kwargs):
         "https://developer.zendesk.com/api-reference/help_center/help-center-api/translations#delete-translation"
         api_path = "/api/v2/help_center/translations/{translation_id}"
