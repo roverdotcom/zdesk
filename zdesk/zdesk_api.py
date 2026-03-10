@@ -5403,4 +5403,21 @@ class ZendeskAPI(object):
         api_path = "/api/v2/workspaces/reorder"
         return self.call(api_path, method="PUT", data=data, **kwargs)
 
+    def custom_object_record_create(self, custom_object_key, data, **kwargs):
+        "https://developer.zendesk.com/api-reference/custom-data/custom-objects/custom_object_records/#create-custom-object-record"
+        api_path = "/api/v2/custom_objects/{custom_object_key}/records"
+        api_path = api_path.format(custom_object_key=custom_object_key)
+        return self.call(api_path, method="POST", data=data, **kwargs)
+
+    def custom_object_record_show(self, custom_object_key, custom_object_record_id, data, **kwargs):
+        "https://developer.zendesk.com/api-reference/custom-data/custom-objects/custom_object_records/#show-custom-object-record"
+        api_path = "/api/v2/custom_objects/{custom_object_key}/records/{custom_object_record_id}"
+        api_path = api_path.format(custom_object_key=custom_object_key, custom_object_record_id=custom_object_record_id)
+        return self.call(api_path, method="GET", data=data, **kwargs)
+
+    def custom_object_record_delete(self, custom_object_key, custom_object_record_id, data, **kwargs):
+        "https://developer.zendesk.com/api-reference/custom-data/custom-objects/custom_object_records/#delete-custom-object-record"
+        api_path = "/api/v2/custom_objects/{custom_object_key}/records/{custom_object_record_id}"
+        api_path = api_path.format(custom_object_key=custom_object_key, custom_object_record_id=custom_object_record_id)
+        return self.call(api_path, method="DELETE", data=data, **kwargs)
 
