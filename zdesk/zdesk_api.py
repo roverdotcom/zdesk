@@ -5418,6 +5418,6 @@ class ZendeskAPI(object):
     def custom_object_record_delete(self, custom_object_key, custom_object_record_id, data, **kwargs):
         "https://developer.zendesk.com/api-reference/custom-data/custom-objects/custom_object_records/#delete-custom-object-record"
         api_path = "/api/v2/custom_objects/{custom_object_key}/records/{custom_object_record_id}"
-        api_path = api_path.format(custom_object_key=custom_object_key)
+        api_path = api_path.format(custom_object_key=custom_object_key, custom_object_record_id=custom_object_record_id)
         return self.call(api_path, method="DELETE", data=data, **kwargs)
 
