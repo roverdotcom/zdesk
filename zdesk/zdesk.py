@@ -98,7 +98,8 @@ class Zendesk(ZendeskAPI):
     def __init__(self, zdesk_url, zdesk_email=None, zdesk_oauth=None,
                  zdesk_api=None, zdesk_password=None, zdesk_token=False,
                  headers=None, client_args=None, api_version=2,
-                 retry_on=None, max_retries=0):
+                 retry_on=None, max_retries=0,
+                 use_oauth=False, client_id=None, client_secret=None):
         """
         Instantiates an instance of Zendesk. Takes optional parameters for
         HTTP Basic Authentication
@@ -124,6 +125,11 @@ class Zendesk(ZendeskAPI):
         max_retries - How many additional connections to make when
             first one fails. No effect when retry_on evaluates to False.
             Defaults to 0.
+        use_oauth - When True, authenticate via OAuth 2.0 client credentials
+            flow. Requires client_id and client_secret. When False (default),
+            falls back to API token authentication.
+        client_id - OAuth application client ID. Required when use_oauth=True.
+        client_secret - OAuth application client secret. Required when use_oauth=True.
         """
         # Set headers
         self.client_args = copy.deepcopy(client_args) or {}
@@ -154,6 +160,43 @@ class Zendesk(ZendeskAPI):
         self._max_retries = 0
         self.retry_on = retry_on
         self.max_retries = max_retries
+
+        if use_oauth:
+            if not (client_id and client_secret):
+                raise ValueError(
+                    "client_id and client_secret are required when use_oauth=True."
+                )
+            self.fetch_oauth_token(client_id, client_secret)
+
+    def fetch_oauth_token(self, client_id, client_secret):
+        """Obtain an access token via the OAuth 2.0 client credentials flow.
+
+        Posts to /oauth/tokens and sets zdesk_oauth to the returned token.
+
+        Parameters:
+        client_id - OAuth application client ID
+        client_secret - OAuth application client secret
+
+        Returns the full token response dict, including access_token,
+        token_type, and expires_in (seconds until expiration).
+
+        Raises AuthenticationError on failure.
+        """
+        url = self.zdesk_url + '/oauth/tokens'
+        payload = {
+            'grant_type': 'client_credentials',
+            'client_id': client_id,
+            'client_secret': client_secret,
+        }
+        response = self.client.post(url, data=payload, **self.client_args)
+
+        if response.status_code != 200:
+            raise AuthenticationError(
+                response.content, response.status_code, response)
+
+        token_data = response.json()
+        self.zdesk_oauth = token_data['access_token']
+        return token_data
 
     def _update_auth(self):
         if self._zdesk_oauth:
