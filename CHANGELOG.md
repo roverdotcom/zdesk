@@ -1,9 +1,15 @@
+## 2.9.0
+
+- Add OAuth support.
+
 ## 2.8.6
+
 - Add support for cursor based pagination and make it default
 - Allow disabling cursor based pagination, because certain endpoints don't support it yet.
 - Add support for incremental api cursor and time pagination.
 
 ## 2.8.0
+
 - Regenerate API from updated mirror. see [full
   commit](https://github.com/fprimex/zdesk/commit/4982b3dad9581fbb49d71307abc229dc4169ab74).
   Most notably, Zendesk has replace many, many instances of using `id` with,
@@ -19,9 +25,11 @@
   upgrading.
 
 ## 2.7.1
+
 - Immediately noticed an OAuth bug. Reference private variables for some logic.
 
 ## 2.7.0
+
 - Support for Python 3.5+
 - OAuth token support, and a more clear way of choosing between password, API
   token, and OAuth token authentication.
@@ -29,6 +37,7 @@
   commit](https://github.com/fprimex/zdesk/commit/1cf01a3b730c84b531261bba98b2ab5aa6dd0d18)
 
 ## 2.6.0
+
 - Fix incremental pagination by making an exception to status 422, removing the
   existing query `kwargs`, and looking for incremental and certain conditions
   to mark the end of `get_all_pages` (by Sarfaraz Soomro).
@@ -43,6 +52,7 @@
   commit](https://github.com/fprimex/zdesk/commit/6e22dea7af6b129a88f9ce30082660eff2eea621)
 
 ## 2.5.0
+
 - Use Pytest and implement some basic tests
 - Implement retry (major contribution by Dominik Miedziński)
 - Merge the `batch` support method (by Dominik Miedziński)
@@ -55,6 +65,7 @@
   commit](https://github.com/fprimex/zdesk/commit/bb455aeac4ffb9c7a6f5cabb9653cf46cdcb8531)
 
 ## 2.4.0
+
 - Support non-JSON endpoint (removed check for .json, for recordings.mp3)
 - Improve generator formatting of duplicates
 - Add doc-anchor-links, so docstrings link more closely to the method question
@@ -62,6 +73,7 @@
   commit](https://github.com/fprimex/zdesk/commit/7240295278fd596189643ae30fbcbb16a4b8c3d9)
 
 ## 2.3.0
+
 - Switch from `httplib2` to `requests`
 - Add `files` parameter to support multipart uploads for Help Center attachment
   style requests
@@ -71,6 +83,7 @@
   commit](https://github.com/fprimex/zdesk/commit/d679a734292de5ade82cb4d4533e79368510769d)
 
 ## 2.2.1
+
 - Remove `common_params`, allowing all kwargs to be passed as queries
 
 ## 2.2.0
@@ -119,4 +132,3 @@
 - Fork zendesk from eventbrite
 - Merge PRs and apply fixes
 - Python 3 compatibility
-
