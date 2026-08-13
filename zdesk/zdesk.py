@@ -161,6 +161,12 @@ class Zendesk(ZendeskAPI):
         self.retry_on = retry_on
         self.max_retries = max_retries
 
+        # OAuth credentials and token expiry, used to refresh the access
+        # token before it lapses. Populated by fetch_oauth_token.
+        self._oauth_client_id = None
+        self._oauth_client_secret = None
+        self._oauth_expires_at = None
+
         if use_oauth:
             if not (client_id and client_secret):
                 raise ValueError(
@@ -196,7 +202,35 @@ class Zendesk(ZendeskAPI):
 
         token_data = response.json()
         self.zdesk_oauth = token_data['access_token']
+
+        # Retain credentials so the token can be transparently refreshed
+        # once it expires. expires_in is optional per the OAuth spec; if it
+        # is absent we treat the token as non-expiring.
+        self._oauth_client_id = client_id
+        self._oauth_client_secret = client_secret
+        expires_in = token_data.get('expires_in')
+        if expires_in is not None:
+            self._oauth_expires_at = time.time() + expires_in
+        else:
+            self._oauth_expires_at = None
+
         return token_data
+
+    def _refresh_oauth_token_if_needed(self):
+        """Re-fetch the OAuth token if it is expired or about to expire.
+
+        No-op unless authenticating via OAuth with a known expiry. A 60
+        second buffer avoids using a token that lapses mid-request.
+        """
+        if not (self._oauth_client_id and self._oauth_client_secret):
+            return
+        if self._oauth_expires_at is None:
+            return
+        if time.time() < self._oauth_expires_at - 60:
+            return
+
+        self.fetch_oauth_token(
+            self._oauth_client_id, self._oauth_client_secret)
 
     def _update_auth(self):
         if self._zdesk_oauth:
@@ -387,6 +421,10 @@ class Zendesk(ZendeskAPI):
             If retval is not specified, then the old behavior of trying
             to determine an appropriate value to return is used.
         """
+
+        # Ensure the OAuth access token is still valid before we build and
+        # send the request. No-op for non-OAuth or non-expiring tokens.
+        self._refresh_oauth_token_if_needed()
 
         # Rather obscure way to support retry_on per single API call
         if retry_on and max_retries:
