@@ -161,11 +161,10 @@ class Zendesk(ZendeskAPI):
         self.retry_on = retry_on
         self.max_retries = max_retries
 
-        # OAuth credentials and token expiry, used to refresh the access
-        # token before it lapses. Populated by fetch_oauth_token.
+        # OAuth credentials, retained so an expired access token can be
+        # re-fetched. Populated by fetch_oauth_token.
         self._oauth_client_id = None
         self._oauth_client_secret = None
-        self._oauth_expires_at = None
 
         if use_oauth:
             if not (client_id and client_secret):
@@ -183,8 +182,8 @@ class Zendesk(ZendeskAPI):
         client_id - OAuth application client ID
         client_secret - OAuth application client secret
 
-        Returns the full token response dict, including access_token,
-        token_type, and expires_in (seconds until expiration).
+        Returns the full token response dict, including access_token
+        and token_type.
 
         Raises AuthenticationError on failure.
         """
@@ -203,34 +202,12 @@ class Zendesk(ZendeskAPI):
         token_data = response.json()
         self.zdesk_oauth = token_data['access_token']
 
-        # Retain credentials so the token can be transparently refreshed
-        # once it expires. expires_in is optional per the OAuth spec; if it
-        # is absent we treat the token as non-expiring.
+        # Retain credentials so the token can be transparently re-fetched
+        # when Zendesk rejects it as expired.
         self._oauth_client_id = client_id
         self._oauth_client_secret = client_secret
-        expires_in = token_data.get('expires_in')
-        if expires_in is not None:
-            self._oauth_expires_at = time.time() + expires_in
-        else:
-            self._oauth_expires_at = None
 
         return token_data
-
-    def _refresh_oauth_token_if_needed(self):
-        """Re-fetch the OAuth token if it is expired or about to expire.
-
-        No-op unless authenticating via OAuth with a known expiry. A 60
-        second buffer avoids using a token that lapses mid-request.
-        """
-        if not (self._oauth_client_id and self._oauth_client_secret):
-            return
-        if self._oauth_expires_at is None:
-            return
-        if time.time() < self._oauth_expires_at - 60:
-            return
-
-        self.fetch_oauth_token(
-            self._oauth_client_id, self._oauth_client_secret)
 
     def _update_auth(self):
         if self._zdesk_oauth:
@@ -422,10 +399,6 @@ class Zendesk(ZendeskAPI):
             to determine an appropriate value to return is used.
         """
 
-        # Ensure the OAuth access token is still valid before we build and
-        # send the request. No-op for non-OAuth or non-expiring tokens.
-        self._refresh_oauth_token_if_needed()
-
         # Rather obscure way to support retry_on per single API call
         if retry_on and max_retries:
             try:
@@ -492,6 +465,7 @@ class Zendesk(ZendeskAPI):
         results = []
         all_requests_complete = False
         request_count = 0
+        oauth_token_refreshed = False
 
         while not all_requests_complete:
             # Make an http request
@@ -522,6 +496,17 @@ class Zendesk(ZendeskAPI):
             # error and raise proper exception
 
             code = response.status_code
+
+            # An expired OAuth access token comes back as a 401. Fetch a
+            # fresh one and replay the request; a second 401 means the
+            # credentials themselves are bad, so let it raise.
+            if (code == 401 and self._oauth_client_id and
+                    not oauth_token_refreshed):
+                oauth_token_refreshed = True
+                self.fetch_oauth_token(self._oauth_client_id,
+                                       self._oauth_client_secret)
+                continue
+
             try:
                 if not 200 <= code < 300:
                     partial_results = self._combine_results(results) if results else None
