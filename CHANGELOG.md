@@ -1,3 +1,8 @@
+## 2.9.1
+
+- Refresh the OAuth access token when Zendesk rejects it with a 401,
+  rather than proactively on an expiry timer.
+
 ## 2.9.0
 
 - Add OAuth support.

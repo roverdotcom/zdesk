@@ -41,14 +41,6 @@ class TestFetchOauthToken:
 
         assert result == TOKEN_RESPONSE
 
-    def test_returns_expires_in(self):
-        zd = Zendesk(ZDESK_URL)
-        zd.client.post = MagicMock(return_value=_mock_token_response())
-
-        result = zd.fetch_oauth_token(CLIENT_ID, CLIENT_SECRET)
-
-        assert 'expires_in' in result
-
     def test_posts_correct_payload_to_oauth_tokens_endpoint(self):
         zd = Zendesk(ZDESK_URL)
         zd.client.post = MagicMock(return_value=_mock_token_response())
@@ -86,59 +78,86 @@ class TestFetchOauthToken:
         assert zd.client.auth is None
 
 
-class TestTokenRefresh:
-    def test_call_refreshes_when_token_expired(self):
+def _api_response(status_code=200):
+    return MagicMock(status_code=status_code, headers={}, content=b'')
+
+
+class TestTokenRefreshOn401:
+    def _oauth_client(self):
         zd = Zendesk(ZDESK_URL)
         zd.client.post = MagicMock(return_value=_mock_token_response())
         zd.fetch_oauth_token(CLIENT_ID, CLIENT_SECRET)
+        return zd
 
-        # Force the token to look expired.
-        zd._oauth_expires_at = 0
+    def test_refreshes_token_when_request_returns_401(self):
+        zd = self._oauth_client()
         zd.client.request = MagicMock(
-            return_value=MagicMock(status_code=200, headers={}, content=b''))
+            side_effect=[_api_response(401), _api_response(200)])
 
         zd.call('/api/v2/tickets.json')
 
-        # One initial fetch plus one refresh triggered by the expired token.
+        # One initial fetch plus one refresh triggered by the 401.
         assert zd.client.post.call_count == 2
 
-    def test_call_does_not_refresh_when_token_valid(self):
-        zd = Zendesk(ZDESK_URL)
-        zd.client.post = MagicMock(return_value=_mock_token_response())
-        zd.fetch_oauth_token(CLIENT_ID, CLIENT_SECRET)
-
+    def test_replays_the_request_after_refreshing(self):
+        zd = self._oauth_client()
         zd.client.request = MagicMock(
-            return_value=MagicMock(status_code=200, headers={}, content=b''))
+            side_effect=[_api_response(401), _api_response(200)])
 
         zd.call('/api/v2/tickets.json')
 
-        # Only the initial fetch; the token is still well within its lifetime.
+        assert zd.client.request.call_count == 2
+
+    def test_replay_uses_the_refreshed_token(self):
+        zd = self._oauth_client()
+        refreshed = {'access_token': 'refreshed_token', 'token_type': 'bearer'}
+        zd.client.post = MagicMock(
+            return_value=_mock_token_response(json_data=refreshed))
+        zd.client.request = MagicMock(
+            side_effect=[_api_response(401), _api_response(200)])
+
+        zd.call('/api/v2/tickets.json')
+
+        headers = zd.client.request.call_args.kwargs['headers']
+        assert headers['Authorization'] == 'Bearer refreshed_token'
+
+    def test_raises_when_the_replay_is_also_rejected(self):
+        zd = self._oauth_client()
+        zd.client.request = MagicMock(
+            side_effect=[_api_response(401), _api_response(401)])
+
+        with pytest.raises(AuthenticationError):
+            zd.call('/api/v2/tickets.json')
+
+        # Refreshed once; the second 401 is a genuine credential failure.
+        assert zd.client.post.call_count == 2
+
+    def test_does_not_refresh_when_the_request_succeeds(self):
+        zd = self._oauth_client()
+        zd.client.request = MagicMock(return_value=_api_response(200))
+
+        zd.call('/api/v2/tickets.json')
+
         assert zd.client.post.call_count == 1
 
-    def test_no_refresh_when_expires_in_absent(self):
-        zd = Zendesk(ZDESK_URL)
-        no_expiry = {'access_token': ACCESS_TOKEN, 'token_type': 'bearer'}
-        zd.client.post = MagicMock(
-            return_value=_mock_token_response(json_data=no_expiry))
-        zd.fetch_oauth_token(CLIENT_ID, CLIENT_SECRET)
+    def test_does_not_refresh_before_the_token_expires(self):
+        zd = self._oauth_client()
+        zd.client.request = MagicMock(return_value=_api_response(200))
 
-        assert zd._oauth_expires_at is None
+        for _ in range(3):
+            zd.call('/api/v2/tickets.json')
 
-        zd.client.request = MagicMock(
-            return_value=MagicMock(status_code=200, headers={}, content=b''))
-        zd.call('/api/v2/tickets.json')
-
-        # Non-expiring token is never proactively refreshed.
+        # Tokens are used until Zendesk rejects them, not renewed on a clock.
         assert zd.client.post.call_count == 1
 
     def test_no_refresh_for_non_oauth_auth(self):
         zd = Zendesk(ZDESK_URL, zdesk_email='user@example.com',
                      zdesk_api='api_token')
         zd.client.post = MagicMock()
-        zd.client.request = MagicMock(
-            return_value=MagicMock(status_code=200, headers={}, content=b''))
+        zd.client.request = MagicMock(return_value=_api_response(401))
 
-        zd.call('/api/v2/tickets.json')
+        with pytest.raises(AuthenticationError):
+            zd.call('/api/v2/tickets.json')
 
         zd.client.post.assert_not_called()
 
