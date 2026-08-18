@@ -5,7 +5,7 @@ setup(
     # Basic package information.
     name="zdesk",
     author="Brent Woodruff",
-    version="2.9.1",
+    version="2.9.2",
     author_email="brent@fprimex.com",
     packages=["zdesk"],
     include_package_data=True,
