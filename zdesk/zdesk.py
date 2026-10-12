@@ -99,7 +99,8 @@ class Zendesk(ZendeskAPI):
                  zdesk_api=None, zdesk_password=None, zdesk_token=False,
                  headers=None, client_args=None, api_version=2,
                  retry_on=None, max_retries=0,
-                 use_oauth=False, client_id=None, client_secret=None):
+                 use_oauth=False, client_id=None, client_secret=None,
+                 scope=None):
         """
         Instantiates an instance of Zendesk. Takes optional parameters for
         HTTP Basic Authentication
@@ -130,6 +131,8 @@ class Zendesk(ZendeskAPI):
             falls back to API token authentication.
         client_id - OAuth application client ID. Required when use_oauth=True.
         client_secret - OAuth application client secret. Required when use_oauth=True.
+        scope - Space-separated OAuth scopes to request, e.g. 'read write'.
+            Omitted from the token request when None.
         """
         # Set headers
         self.client_args = copy.deepcopy(client_args) or {}
@@ -165,15 +168,16 @@ class Zendesk(ZendeskAPI):
         # re-fetched. Populated by fetch_oauth_token.
         self._oauth_client_id = None
         self._oauth_client_secret = None
+        self._oauth_scope = None
 
         if use_oauth:
             if not (client_id and client_secret):
                 raise ValueError(
                     "client_id and client_secret are required when use_oauth=True."
                 )
-            self.fetch_oauth_token(client_id, client_secret)
+            self.fetch_oauth_token(client_id, client_secret, scope=scope)
 
-    def fetch_oauth_token(self, client_id, client_secret):
+    def fetch_oauth_token(self, client_id, client_secret, scope=None):
         """Obtain an access token via the OAuth 2.0 client credentials flow.
 
         Posts to /oauth/tokens and sets zdesk_oauth to the returned token.
@@ -181,6 +185,8 @@ class Zendesk(ZendeskAPI):
         Parameters:
         client_id - OAuth application client ID
         client_secret - OAuth application client secret
+        scope - Space-separated OAuth scopes to request, or None to let
+            Zendesk apply its default
 
         Returns the full token response dict, including access_token
         and token_type.
@@ -193,6 +199,8 @@ class Zendesk(ZendeskAPI):
             'client_id': client_id,
             'client_secret': client_secret,
         }
+        if scope:
+            payload['scope'] = scope
         response = self.client.post(url, data=payload, **self.client_args)
 
         if response.status_code != 200:
@@ -206,6 +214,7 @@ class Zendesk(ZendeskAPI):
         # when Zendesk rejects it as expired.
         self._oauth_client_id = client_id
         self._oauth_client_secret = client_secret
+        self._oauth_scope = scope
 
         return token_data
 
@@ -504,7 +513,8 @@ class Zendesk(ZendeskAPI):
                     not oauth_token_refreshed):
                 oauth_token_refreshed = True
                 self.fetch_oauth_token(self._oauth_client_id,
-                                       self._oauth_client_secret)
+                                       self._oauth_client_secret,
+                                       scope=self._oauth_scope)
                 continue
 
             try:

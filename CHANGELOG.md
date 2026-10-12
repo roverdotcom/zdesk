@@ -1,3 +1,8 @@
+## 2.9.2
+
+- Accept an optional `scope` for the OAuth client credentials token
+  request, and reuse it when re-fetching the token after a 401.
+
 ## 2.9.1
 
 - Refresh the OAuth access token when Zendesk rejects it with a 401,
