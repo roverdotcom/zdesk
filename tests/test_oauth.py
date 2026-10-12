@@ -56,6 +56,14 @@ class TestFetchOauthToken:
             },
         )
 
+    def test_includes_scope_in_payload_when_given(self):
+        zd = Zendesk(ZDESK_URL)
+        zd.client.post = MagicMock(return_value=_mock_token_response())
+
+        zd.fetch_oauth_token(CLIENT_ID, CLIENT_SECRET, scope='read write')
+
+        assert zd.client.post.call_args.kwargs['data']['scope'] == 'read write'
+
     def test_raises_authentication_error_on_failure(self):
         zd = Zendesk(ZDESK_URL)
         mock_resp = MagicMock()
@@ -121,6 +129,17 @@ class TestTokenRefreshOn401:
         headers = zd.client.request.call_args.kwargs['headers']
         assert headers['Authorization'] == 'Bearer refreshed_token'
 
+    def test_refresh_requests_the_same_scope(self):
+        zd = Zendesk(ZDESK_URL)
+        zd.client.post = MagicMock(return_value=_mock_token_response())
+        zd.fetch_oauth_token(CLIENT_ID, CLIENT_SECRET, scope='read write')
+        zd.client.request = MagicMock(
+            side_effect=[_api_response(401), _api_response(200)])
+
+        zd.call('/api/v2/tickets.json')
+
+        assert zd.client.post.call_args.kwargs['data']['scope'] == 'read write'
+
     def test_raises_when_the_replay_is_also_rejected(self):
         zd = self._oauth_client()
         zd.client.request = MagicMock(
@@ -168,7 +187,15 @@ class TestUseOauthConstructor:
             mock_fetch.return_value = TOKEN_RESPONSE
             Zendesk(ZDESK_URL, use_oauth=True, client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
 
-        mock_fetch.assert_called_once_with(CLIENT_ID, CLIENT_SECRET)
+        mock_fetch.assert_called_once_with(CLIENT_ID, CLIENT_SECRET, scope=None)
+
+    def test_passes_scope_when_use_oauth_true(self):
+        with patch.object(Zendesk, 'fetch_oauth_token') as mock_fetch:
+            mock_fetch.return_value = TOKEN_RESPONSE
+            Zendesk(ZDESK_URL, use_oauth=True, client_id=CLIENT_ID,
+                    client_secret=CLIENT_SECRET, scope='read write')
+
+        mock_fetch.assert_called_once_with(CLIENT_ID, CLIENT_SECRET, scope='read write')
 
     def test_raises_without_client_id(self):
         with pytest.raises(ValueError, match='client_id and client_secret are required'):
